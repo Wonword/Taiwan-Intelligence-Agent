@@ -121,7 +121,7 @@ npm run build
    - **Framework Preset**: `Vite`
    - **Build Command**: `npm run build`
    - **Output Directory**: `dist`
-   - **Install Command**: `npm install`
+   - **Install Command**: `npm install` (a `.npmrc` file with `legacy-peer-deps=true` is included to resolve peer dependency resolution in modern npm)
 4. Add the **Environment Variables** in the Vercel dashboard:
    - `GEMINI_API_KEY`: Your Google Gemini API key.
    - `GEMINI_MODEL`: `gemini-3.8-flash` (or your preferred supported Gemini model).
