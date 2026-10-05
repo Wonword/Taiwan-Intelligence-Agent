@@ -7,11 +7,11 @@ import {
   FollowUpQuestionAnswer,
   IndicatorsBreakdown,
   CategoryIndicator,
-} from '../../src/types';
+} from '../types';
 import {
   calculateEscalationIndex,
   getStrategicImportanceTier,
-} from '../../src/utils/scoring';
+} from '../scoring';
 
 const ANALYST_SYSTEM_INSTRUCTION = `You are a senior geopolitical intelligence analyst specializing in Taiwan and cross-Strait relations.
 The target audience is a European business manager who needs to understand geopolitical developments affecting semiconductor supply chains, international trade, and regional security.

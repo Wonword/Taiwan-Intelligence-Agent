@@ -10,6 +10,63 @@ import { IntelligenceBrief, FollowUpQuestionAnswer } from './types';
 import { sampleIntelligenceBrief } from './data/initialBrief';
 import { Shield, BookOpen, AlertCircle } from 'lucide-react';
 
+// Helper to safely execute /api/analyze requests and parse errors even if non-JSON (e.g. Vercel 500/504)
+async function postAnalyzeApi(payload: any): Promise<any> {
+  let response: Response;
+  try {
+    response = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch (netErr: any) {
+    throw new Error(
+      `Network connection error: ${netErr.message || 'Unable to connect to intelligence API endpoint.'}`
+    );
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  let data: any = null;
+
+  if (contentType.includes('application/json')) {
+    try {
+      data = await response.json();
+    } catch {
+      // fallback to text reading
+    }
+  }
+
+  if (!data) {
+    const rawText = await response.text();
+    if (!response.ok) {
+      if (response.status === 500 && (rawText.includes('server error') || rawText.includes('Serverless Function'))) {
+        throw new Error(
+          'Server Error (HTTP 500): The serverless function failed. Please verify that GEMINI_API_KEY is configured in your Vercel Project Environment Variables.'
+        );
+      }
+      if (response.status === 504 || rawText.includes('timed out')) {
+        throw new Error(
+          'Gateway Timeout (HTTP 504): The intelligence analysis exceeded the execution limit. Please retry.'
+        );
+      }
+      throw new Error(`Server returned HTTP ${response.status}: ${rawText || response.statusText}`);
+    }
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      throw new Error(`Server returned non-JSON response: ${rawText.slice(0, 150)}`);
+    }
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      data.error || `Server responded with HTTP ${response.status}: ${response.statusText}`
+    );
+  }
+
+  return data;
+}
+
 export default function App() {
   const [brief, setBrief] = useState<IntelligenceBrief>(sampleIntelligenceBrief);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -32,24 +89,14 @@ export default function App() {
         setLoadingStep('Calculating escalation risk index and synthesizing European trade impacts...');
       }, 7000);
 
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mode: 'brief',
-          startDate,
-          endDate,
-        }),
+      const data = await postAnalyzeApi({
+        mode: 'brief',
+        startDate,
+        endDate,
       });
 
       clearTimeout(stepTimer1);
       clearTimeout(stepTimer2);
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || `Server responded with status ${response.status}`);
-      }
 
       if (!data.brief) {
         throw new Error('Received incomplete briefing data from intelligence service.');
@@ -76,22 +123,12 @@ export default function App() {
         setLoadingStep('Calculating escalation risk index and European supply chain exposure...');
       }, 4000);
 
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mode: 'event',
-          eventText,
-        }),
+      const data = await postAnalyzeApi({
+        mode: 'event',
+        eventText,
       });
 
       clearTimeout(stepTimer);
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || `Server responded with status ${response.status}`);
-      }
 
       if (!data.brief) {
         throw new Error('Received incomplete event analysis data from intelligence service.');
@@ -111,27 +148,18 @@ export default function App() {
   const handleAskQuestion = async (
     question: string
   ): Promise<FollowUpQuestionAnswer> => {
-    const response = await fetch('/api/analyze', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        mode: 'question',
-        question,
-        contextBrief: {
-          summary: brief.executiveSummary,
-          developments: brief.developments.map((d) => ({
-            title: d.eventTitle,
-            fact: d.fact,
-            analysis: d.analysis,
-          })),
-        },
-      }),
+    const data = await postAnalyzeApi({
+      mode: 'question',
+      question,
+      contextBrief: {
+        summary: brief.executiveSummary,
+        developments: brief.developments.map((d) => ({
+          title: d.eventTitle,
+          fact: d.fact,
+          analysis: d.analysis,
+        })),
+      },
     });
-
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to analyze follow-up question.');
-    }
 
     if (!data.answer) {
       throw new Error('No answer received from intelligence service.');
