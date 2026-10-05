@@ -1,0 +1,6 @@
+{
+  "name": "Taiwan Intelligence Agent",
+  "description": "Educational geopolitical intelligence dashboard for European business managers analyzing Taiwan cross-Strait developments, semiconductor supply chains, and escalation risks.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
